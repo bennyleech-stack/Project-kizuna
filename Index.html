@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project KIZUNA</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <style>
+        :root { --neon-cyan: #00f2ff; --neon-pink: #ff00c1; --bg-dark: #020617; }
+        body { background-color: var(--bg-dark); color: white; font-family: sans-serif; }
+        .cyber-panel { background: rgba(15, 23, 42, 0.9); border: 2px solid var(--neon-cyan); box-shadow: 0 0 15px rgba(0, 242, 255, 0.2); }
+        .btn-option { background: rgba(30, 41, 59, 0.7); border-left: 4px solid var(--neon-cyan); transition: all 0.2s; }
+        .btn-option:hover { background: var(--neon-cyan); color: black; transform: translateX(5px); }
+        .glitch { text-shadow: 2px 0 var(--neon-pink), -2px 0 var(--neon-cyan); }
+    </style>
+</head>
+<body class="p-4">
+    <div id="app" class="max-w-md mx-auto h-screen flex flex-col">
+        <div class="w-full bg-slate-800 h-1.5 mb-4 rounded-full">
+            <div class="bg-cyan-400 h-full transition-all" :style="{ width: ((currentLevel + 1) / 25 * 100) + '%' }"></div>
+        </div>
+
+        <div v-if="levels.length > 0" class="flex-grow cyber-panel rounded-xl overflow-hidden flex flex-col">
+            <div class="h-1/3 bg-slate-800 flex items-center justify-center relative bg-cover bg-center" 
+                 :style="{ backgroundImage: 'url(' + currentLevelData.background + ')' }">
+                <div class="text-7xl drop-shadow-lg">🤖</div>
+            </div>
+
+            <div class="p-6 flex-grow flex flex-col justify-between bg-slate-900">
+                <div>
+                    <h2 class="text-pink-500 font-bold text-xs uppercase mb-1">{{ currentStep.speaker }}</h2>
+                    <p class="text-xl leading-tight font-medium glitch">{{ currentStep.text }}</p>
+                </div>
+
+                <div class="mt-6 space-y-3">
+                    <button v-for="opt in currentStep.options" @click="handleOption(opt)" 
+                            class="w-full p-4 btn-option text-left text-sm">
+                        {{ opt.text }}
+                    </button>
+                    <button v-if="!currentStep.options" @click="nextStep" 
+                            class="w-full py-3 bg-cyan-600 font-bold rounded mt-4 uppercase tracking-widest">Next Step</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-4 p-3 bg-slate-900 border border-slate-800 rounded text-xs text-slate-400">
+            <span class="text-cyan-400 font-bold">TRANSLATION HINT:</span> {{ currentStep.hint }}
+        </div>
+    </div>
+
+    <script>
+        const { createApp } = Vue
+        createApp({
+            data() {
+                return { currentLevel: 0, stepIndex: 0, levels: [] }
+            },
+            computed: {
+                currentLevelData() { return this.levels[this.currentLevel] },
+                currentStep() { return this.currentLevelData?.dialogue[this.stepIndex] || {} }
+            },
+            mounted() {
+                fetch('./levels.json').then(res => res.json()).then(data => { this.levels = data })
+            },
+            methods: {
+                handleOption(opt) {
+                    alert(opt.feedback); // Simple feedback for now
+                    if(opt.correct !== false) this.nextStep();
+                },
+                nextStep() {
+                    if (this.stepIndex < this.currentLevelData.dialogue.length - 1) {
+                        this.stepIndex++;
+                    } else if (this.currentLevel < this.levels.length - 1) {
+                        this.currentLevel++;
+                        this.stepIndex = 0;
+                    } else {
+                        alert("Congratulations! You've finished Project KIZUNA.");
+                    }
+                }
+            }
+        }).mount('#app')
+    </script>
+</body>
+</html>
