@@ -1,0 +1,1578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Project KIZUNA</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bangers&family=Noto+Sans+JP:wght@400;700&family=Share+Tech+Mono&display=swap');
+
+:root {
+  --cyan:#00f2ff; --pink:#ff00c1; --gold:#ffd700; --green:#00ff88;
+  --red:#ff4466; --dark:#020617; --ink:#0a0f1e; --paper:#f0ede8;
+  --panel:rgba(2,6,23,0.94);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+
+/* ── BASE ── */
+body{background:var(--dark);font-family:'Share Tech Mono',monospace;
+  height:100vh;overflow:hidden;color:white;}
+
+/* Scanlines */
+body::after{content:'';position:fixed;inset:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.03) 3px,rgba(0,0,0,0.03) 4px);
+  pointer-events:none;z-index:9999;}
+
+/* ── SCENE BG ── */
+#scene-bg{position:fixed;inset:0;background-size:cover;background-position:center;
+  filter:brightness(0.25) saturate(1.6);transition:background-image 1s;}
+#scene-bg::after{content:'';position:absolute;inset:0;
+  background:linear-gradient(to top,var(--dark) 0%,transparent 40%,var(--dark) 100%);}
+
+/* ══════════════════════════════════════════════════
+   HUD
+══════════════════════════════════════════════════ */
+#hud{position:fixed;top:0;left:50%;transform:translateX(-50%);
+  width:100%;max-width:480px;z-index:100;
+  display:flex;align-items:center;gap:0.5rem;
+  padding:0.4rem 0.7rem;
+  background:linear-gradient(to bottom,rgba(2,6,23,0.95),transparent);}
+#hud-lv{font-family:'Orbitron','Share Tech Mono',monospace;font-size:0.72rem;
+  color:var(--cyan);letter-spacing:0.15em;white-space:nowrap;flex-shrink:0;}
+#prog-track{flex:1;height:3px;background:rgba(255,255,255,0.1);border-radius:9px;}
+#prog-fill{height:100%;background:linear-gradient(90deg,var(--cyan),var(--pink));
+  border-radius:9px;transition:width 0.7s ease;}
+#hud-arc{font-size:0.68rem;color:rgba(255,255,255,0.3);white-space:nowrap;flex-shrink:0;}
+/* Lexicon button */
+#btn-lex{width:28px;height:28px;border-radius:50%;background:rgba(255,215,0,0.12);
+  border:1px solid rgba(255,215,0,0.4);color:var(--gold);font-size:0.85rem;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;transition:all 0.2s;}
+#btn-lex:hover{background:var(--gold);color:black;}
+
+/* ══════════════════════════════════════════════════
+   MAIN SCROLL AREA
+══════════════════════════════════════════════════ */
+#scroll-area{position:relative;z-index:10;
+  max-width:480px;margin:0 auto;
+  height:100vh;overflow-y:auto;overflow-x:hidden;
+  padding:3rem 0.6rem 8rem;
+  scroll-behavior:smooth;
+  -webkit-overflow-scrolling:touch;}
+#scroll-area::-webkit-scrollbar{width:3px;}
+#scroll-area::-webkit-scrollbar-thumb{background:rgba(0,242,255,0.3);border-radius:9px;}
+
+/* ══════════════════════════════════════════════════
+   MANGA PANELS
+══════════════════════════════════════════════════ */
+.manga-panel{
+  background:rgba(10,15,30,0.7);
+  border:2px solid rgba(0,242,255,0.12);
+  border-radius:6px;
+  margin-bottom:0.75rem;
+  overflow:hidden;
+  animation:panel-in 0.35s ease both;
+}
+@keyframes panel-in{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:none;}}
+
+/* Scene hero panel — near-full viewport height */
+.panel-scene{position:relative;height:72vh;min-height:280px;max-height:480px;
+  background:transparent !important;}
+.panel-scene-bg{position:absolute;inset:0;background-size:cover;background-position:center;
+  filter:brightness(0.55) saturate(1.4);}
+.panel-scene-overlay{position:absolute;inset:0;
+  background:linear-gradient(to top,rgba(2,6,23,1) 0%,rgba(2,6,23,0.5) 45%,rgba(2,6,23,0.1) 100%);
+  display:flex;flex-direction:column;justify-content:flex-end;padding:1.1rem;}
+.panel-arc{font-family:'Bangers',cursive;font-size:0.75rem;color:var(--pink);
+  letter-spacing:0.25em;margin-bottom:0.3rem;text-transform:uppercase;}
+.panel-title{font-family:'Bangers',cursive;font-size:2rem;color:white;
+  text-shadow:3px 3px 0 var(--pink),-1px -1px 0 var(--cyan);line-height:1.1;margin-bottom:0.5rem;}
+/* Scroll hint arrow */
+.panel-scene-scroll{font-size:0.65rem;color:rgba(0,242,255,0.5);
+  letter-spacing:0.15em;animation:bounce 2s ease-in-out infinite;}
+@keyframes bounce{0%,100%{transform:translateY(0);}50%{transform:translateY(4px);}}
+
+/* Story panel — separate from image so user scrolls to it */
+.panel-story-block{padding:0.9rem 1rem;background:rgba(2,6,23,0.85);}
+.panel-story-text{font-size:0.84rem;color:rgba(255,255,255,0.88);line-height:1.7;}
+
+/* Context panel */
+.panel-context{padding:0.7rem 0.9rem;
+  background:rgba(255,0,193,0.05);
+  border-left:3px solid var(--pink);}
+.panel-context-label{font-size:0.68rem;color:var(--pink);letter-spacing:0.15em;margin-bottom:0.3rem;}
+.panel-context-text{font-size:0.78rem;color:rgba(255,255,255,0.6);line-height:1.6;font-style:italic;}
+
+/* Speech bubble panel */
+.panel-speech{padding:0.75rem 0.9rem;}
+.bubble-row{display:flex;align-items:flex-end;gap:0.55rem;margin-bottom:0.5rem;}
+.bubble-row.player{flex-direction:row-reverse;}
+
+.avatar{width:38px;height:38px;border-radius:50%;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:1.3rem;
+  border:2px solid rgba(0,242,255,0.3);background:rgba(0,242,255,0.05);}
+.avatar.hana{border-color:rgba(255,0,193,0.4);background:rgba(255,0,193,0.05);}
+.avatar.ken{border-color:rgba(255,215,0,0.4);background:rgba(255,215,0,0.05);}
+.avatar.zero{border-color:rgba(255,68,102,0.3);background:rgba(255,68,102,0.05);}
+.avatar.core{border-color:rgba(0,255,136,0.4);background:rgba(0,255,136,0.05);}
+.avatar.teacher{border-color:rgba(180,180,255,0.4);background:rgba(180,180,255,0.05);}
+
+.bubble{position:relative;padding:0.55rem 0.75rem;border-radius:12px;
+  max-width:calc(100% - 54px);cursor:pointer;transition:transform 0.15s;}
+.bubble:hover{transform:scale(1.02);}
+/* Tail */
+.bubble-row:not(.player) .bubble{background:rgba(15,25,50,0.9);
+  border:1.5px solid rgba(0,242,255,0.25);border-radius:0 12px 12px 12px;}
+.bubble-row.player .bubble{background:rgba(30,20,50,0.9);
+  border:1.5px solid rgba(255,0,193,0.25);border-radius:12px 0 12px 12px;}
+
+.bubble-speaker{font-size:0.65rem;color:var(--cyan);letter-spacing:0.1em;
+  text-transform:uppercase;margin-bottom:0.2rem;}
+.bubble-row.player .bubble-speaker{color:var(--pink);}
+
+/* Japanese text in bubble — ruby sits above, baseline stays level */
+.bubble-jp{font-family:'Noto Sans JP',sans-serif;font-size:1.1rem;
+  font-weight:700;line-height:2.2;color:white;}
+.bubble-jp ruby{display:ruby;ruby-position:over;}
+.bubble-jp ruby rt{display:ruby-text;font-size:0.62rem;
+  font-family:'Share Tech Mono',monospace;
+  color:var(--gold);font-weight:400;letter-spacing:0.02em;}
+.bubble-jp .w-new{color:var(--gold);}
+.bubble-jp .w-seen{color:rgba(255,255,255,0.9);}
+
+/* Audio indicator */
+.audio-btn{display:inline-flex;align-items:center;gap:0.3rem;
+  margin-top:0.35rem;font-size:0.68rem;color:rgba(0,242,255,0.6);
+  cursor:pointer;letter-spacing:0.05em;}
+.audio-btn::before{content:'▶';font-size:0.6rem;}
+.audio-btn.playing{color:var(--cyan);animation:blink 0.5s infinite;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:0.4;}}
+
+/* Exchange prompt bar */
+.prompt-bar{margin:0.5rem 0 0.4rem;padding:0.5rem 0.7rem;
+  background:rgba(255,215,0,0.06);border-left:2px solid var(--gold);
+  font-size:0.78rem;color:rgba(255,215,0,0.85);line-height:1.45;}
+
+/* ══════════════════════════════════════════════════
+   CHOICE PANEL — visual + text
+══════════════════════════════════════════════════ */
+.panel-choices{padding:0.6rem 0.8rem 0.8rem;}
+.choices-grid{display:grid;gap:0.5rem;}
+.choices-grid.visual{grid-template-columns:1fr 1fr 1fr;}
+.choices-grid.text{grid-template-columns:1fr;}
+
+/* Visual choice */
+.choice-visual{
+  display:flex;flex-direction:column;align-items:center;gap:0.35rem;
+  padding:0.75rem 0.3rem;
+  background:rgba(30,41,59,0.5);
+  border:2px solid rgba(0,242,255,0.2);
+  border-radius:8px;cursor:pointer;
+  transition:all 0.18s;font-size:0.75rem;text-align:center;
+  color:rgba(255,255,255,0.75);}
+.choice-visual .emoji{font-size:2.2rem;line-height:1;}
+.choice-visual:hover{border-color:var(--cyan);background:rgba(0,242,255,0.1);}
+.choice-visual.correct{border-color:var(--green)!important;background:rgba(0,255,136,0.12)!important;animation:flash-ok 0.4s;}
+.choice-visual.wrong{border-color:var(--red)!important;animation:shake 0.35s;opacity:0.35;}
+@keyframes flash-ok{0%{background:rgba(0,255,136,0.45);}100%{background:rgba(0,255,136,0.12);}}
+@keyframes shake{0%,100%{transform:translateX(0);}25%{transform:translateX(-5px);}75%{transform:translateX(5px);}}
+
+/* Text choice */
+.choice-text{
+  padding:0.7rem 0.9rem;
+  background:rgba(30,41,59,0.5);
+  border:none;border-left:3px solid var(--cyan);
+  color:white;font-family:'Noto Sans JP',sans-serif;font-size:0.88rem;
+  text-align:left;cursor:pointer;transition:all 0.18s;border-radius:0 4px 4px 0;width:100%;}
+.choice-text:hover{background:var(--cyan);color:black;transform:translateX(3px);}
+.choice-text.correct{border-left-color:var(--green);background:rgba(0,255,136,0.12);}
+.choice-text.wrong{border-left-color:var(--red);animation:shake 0.35s;opacity:0.35;}
+
+/* Feedback bar */
+.feedback-bar{margin-top:0.45rem;padding:0.4rem 0.6rem;border-radius:4px;
+  font-size:0.75rem;line-height:1.45;opacity:0;transition:opacity 0.25s;min-height:1.8rem;}
+.feedback-bar.good{opacity:1;color:var(--green);background:rgba(0,255,136,0.07);
+  border:1px solid rgba(0,255,136,0.2);}
+.feedback-bar.bad{opacity:1;color:#ffaa88;background:rgba(255,100,60,0.07);
+  border:1px solid rgba(255,100,60,0.2);}
+
+/* ══════════════════════════════════════════════════
+   BOTTOM KIBI BAR (fixed)
+══════════════════════════════════════════════════ */
+#kibi-bar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);
+  width:100%;max-width:480px;z-index:200;
+  padding:0.5rem 0.7rem;
+  background:linear-gradient(to top,rgba(2,6,23,0.98) 70%,transparent);}
+.kibi-inner{display:flex;align-items:flex-end;gap:0.55rem;}
+#kibi-avatar{width:42px;height:42px;border-radius:50%;
+  border:2px solid var(--cyan);box-shadow:0 0 8px var(--cyan);
+  display:flex;align-items:center;justify-content:center;font-size:1.3rem;
+  flex-shrink:0;background:rgba(0,242,255,0.05);animation:pulse 3s ease-in-out infinite;}
+@keyframes pulse{0%,100%{box-shadow:0 0 8px var(--cyan);}50%{box-shadow:0 0 18px var(--cyan),0 0 36px rgba(0,242,255,0.2);}}
+#kibi-text{flex:1;background:rgba(0,242,255,0.06);border:1px solid rgba(0,242,255,0.22);
+  border-radius:0 10px 10px 10px;padding:0.45rem 0.7rem;
+  font-size:0.78rem;color:rgba(255,255,255,0.75);line-height:1.5;}
+
+/* ══════════════════════════════════════════════════
+   VISUAL LEXICON OVERLAY
+══════════════════════════════════════════════════ */
+#lexicon{position:fixed;inset:0;z-index:500;
+  display:flex;flex-direction:column;
+  background:rgba(2,6,23,0.97);
+  transform:translateY(100%);transition:transform 0.35s ease;}
+#lexicon.open{transform:translateY(0);}
+#lex-header{display:flex;align-items:center;justify-content:space-between;
+  padding:0.8rem 1rem;border-bottom:1px solid rgba(0,242,255,0.15);}
+#lex-title{font-family:'Bangers',cursive;font-size:1.4rem;color:var(--gold);
+  letter-spacing:0.1em;text-shadow:2px 2px 0 rgba(255,215,0,0.2);}
+#lex-count{font-size:0.75rem;color:rgba(255,255,255,0.3);}
+#btn-lex-close{padding:0.35rem 0.8rem;background:transparent;
+  border:1px solid rgba(0,242,255,0.3);color:var(--cyan);
+  font-family:'Share Tech Mono',monospace;font-size:0.75rem;cursor:pointer;border-radius:4px;}
+#lex-grid{flex:1;overflow-y:auto;padding:0.8rem;
+  display:grid;grid-template-columns:repeat(4,1fr);gap:0.5rem;align-content:start;}
+.lex-card{display:flex;flex-direction:column;align-items:center;gap:0.25rem;
+  padding:0.5rem 0.2rem;background:rgba(255,215,0,0.05);
+  border:1px solid rgba(255,215,0,0.15);border-radius:6px;
+  text-align:center;animation:pop-in 0.3s ease both;}
+@keyframes pop-in{from{transform:scale(0.6);opacity:0;}to{transform:scale(1);opacity:1;}}
+.lex-card .lex-emoji{font-size:1.8rem;}
+.lex-card .lex-jp{font-family:'Noto Sans JP',sans-serif;font-size:0.78rem;
+  font-weight:700;color:var(--gold);}
+.lex-card .lex-romaji{font-size:0.68rem;color:rgba(255,255,255,0.4);}
+#lex-empty{padding:2rem;text-align:center;color:rgba(255,255,255,0.2);font-size:0.78rem;}
+
+/* ══════════════════════════════════════════════════
+   TOAST
+══════════════════════════════════════════════════ */
+#toast{position:fixed;top:50%;left:50%;
+  transform:translate(-50%,-50%) scale(0.85);
+  background:rgba(2,6,23,0.97);border:2px solid var(--cyan);
+  box-shadow:0 0 40px rgba(0,242,255,0.3);
+  padding:1.3rem 1.6rem;border-radius:8px;text-align:center;
+  max-width:300px;width:90%;z-index:600;
+  opacity:0;pointer-events:none;transition:all 0.22s;}
+#toast.show{opacity:1;transform:translate(-50%,-50%) scale(1);pointer-events:all;}
+#toast-icon{font-size:2rem;margin-bottom:0.5rem;}
+#toast-text{color:rgba(255,255,255,0.9);line-height:1.7;margin-bottom:1rem;
+  font-size:0.82rem;white-space:pre-line;}
+#toast-btn{padding:0.48rem 1.3rem;background:var(--cyan);border:none;color:black;
+  font-family:'Share Tech Mono',monospace;font-size:0.75rem;font-weight:700;
+  letter-spacing:0.1em;cursor:pointer;border-radius:4px;}
+</style>
+</head>
+<body>
+
+<div id="scene-bg"></div>
+
+<!-- HUD -->
+<div id="hud">
+  <span id="hud-lv">LV 01</span>
+  <div id="prog-track"><div id="prog-fill" style="width:4%"></div></div>
+  <span id="hud-arc">ARC 1</span>
+  <button id="btn-lex" onclick="toggleLexicon()" title="Word Collection">📖</button>
+</div>
+
+<!-- MANGA SCROLL -->
+<div id="scroll-area"></div>
+
+<!-- KIBI BAR -->
+<div id="kibi-bar">
+  <div class="kibi-inner">
+    <div id="kibi-avatar">🤖</div>
+    <div id="kibi-text">Initialising KIZUNA system...</div>
+  </div>
+</div>
+
+<!-- LEXICON -->
+<div id="lexicon">
+  <div id="lex-header">
+    <div>
+      <div id="lex-title">📖 WORD COLLECTION</div>
+      <div id="lex-count">0 words acquired</div>
+    </div>
+    <button id="btn-lex-close" onclick="toggleLexicon()">✕ CLOSE</button>
+  </div>
+  <div id="lex-grid"><div id="lex-empty">No words collected yet.<br>Tap speech bubbles to hear them<br>and complete exchanges to collect!</div></div>
+</div>
+
+<!-- TOAST -->
+<div id="toast">
+  <div id="toast-icon">✓</div>
+  <div id="toast-text"></div>
+  <button id="toast-btn" onclick="dismissToast()">続ける — CONTINUE</button>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════
+// VOCABULARY — every word: emoji, Japanese, romaji, meaning
+// Words with emoji appear in the Visual Lexicon
+// ══════════════════════════════════════════════════════════
+const VOCAB = {
+  watashi:  {jp:"わたし", rom:"watashi",  en:"I / me",          emoji:"🙋"},
+  kibi:     {jp:"キビ",   rom:"Kibi",     en:"Kibi (the AI)",   emoji:"🤖"},
+  desu:     {jp:"です",   rom:"desu",     en:"am / is / are",   emoji:null},
+  ka:       {jp:"か",     rom:"ka",       en:"? (question)",    emoji:null},
+  wa:       {jp:"は",     rom:"wa",       en:"topic marker",    emoji:null},
+  ga:       {jp:"が",     rom:"ga",       en:"subject marker",  emoji:null},
+  hai:      {jp:"はい",   rom:"hai",      en:"yes",             emoji:"✅"},
+  iie:      {jp:"いいえ", rom:"iie",      en:"no",              emoji:"❌"},
+  kore:     {jp:"これ",   rom:"kore",     en:"this",            emoji:"👇"},
+  mizu:     {jp:"みず",   rom:"mizu",     en:"water",           emoji:"💧"},
+  nomimasu: {jp:"のみます",rom:"nomimasu", en:"drink",           emoji:"🥤"},
+  nomimasen:{jp:"のみません",rom:"nomimasen",en:"don't drink",   emoji:null},
+  anata:    {jp:"あなた", rom:"anata",    en:"you",             emoji:"👤"},
+  dare:     {jp:"だれ",   rom:"dare",     en:"who?",            emoji:"❓"},
+  doko:     {jp:"どこ",   rom:"doko",     en:"where?",          emoji:"📍"},
+  asoko:    {jp:"あそこ", rom:"asoko",    en:"over there",      emoji:"👉"},
+  koko:     {jp:"ここ",   rom:"koko",     en:"here",            emoji:"📌"},
+  sumimasen:{jp:"すみません",rom:"sumimasen",en:"excuse me",    emoji:"🙏"},
+  eki:      {jp:"えき",   rom:"eki",      en:"station",         emoji:"🚉"},
+  irasshaimase:{jp:"いらっしゃいませ",rom:"irasshaimase",en:"welcome!",emoji:"🏪"},
+  bento:    {jp:"べんとう",rom:"bento",   en:"lunch box",       emoji:"🍱"},
+  kudasai:  {jp:"ください",rom:"kudasai", en:"please give",     emoji:"🤲"},
+  teki:     {jp:"てき",   rom:"teki",     en:"enemy",           emoji:"👾"},
+  aoi:      {jp:"あおい", rom:"aoi",      en:"blue",            emoji:"🫐"},
+  ookii:    {jp:"おおきい",rom:"ookii",   en:"big",             emoji:"🔵"},
+  chiisai:  {jp:"ちいさい",rom:"chiisai", en:"small",           emoji:"🔹"},
+  ima:      {jp:"いま",   rom:"ima",      en:"now",             emoji:"⏰"},
+  nanji:    {jp:"なんじ", rom:"nanji",    en:"what time?",      emoji:"🕰️"},
+  kuji:     {jp:"くじ",   rom:"kuji",     en:"9 o'clock",       emoji:"🕘"},
+  sakka:    {jp:"サッカー",rom:"sakka-",  en:"soccer",          emoji:"⚽"},
+  shimasu:  {jp:"します", rom:"shimasu",  en:"do / play",       emoji:"🎮"},
+  tabemasu: {jp:"たべます",rom:"tabemasu",en:"eat",             emoji:"🍜"},
+  oishii:   {jp:"おいしい",rom:"oishii",  en:"delicious!",      emoji:"😋"},
+  hon:      {jp:"ほん",   rom:"hon",      en:"book",            emoji:"📚"},
+  tsukue:   {jp:"つくえ", rom:"tsukue",   en:"desk",            emoji:"🪑"},
+  ue:       {jp:"うえ",   rom:"ue",       en:"on top",          emoji:"⬆️"},
+  fukuro:   {jp:"ふくろ", rom:"fukuro",   en:"bag",             emoji:"🛍️"},
+  irimasu:  {jp:"いります", rom:"irimasu",  en:"need",           emoji:null},
+  kekkou:   {jp:"けっこう",rom:"kekkou",  en:"no thanks",       emoji:"🙅"},
+  nani:     {jp:"なに",   rom:"nani",     en:"what?",           emoji:"🤷"},
+  benkyou:  {jp:"べんきょう",rom:"benkyou",en:"studying",       emoji:"📖"},
+  kono:     {jp:"この",   rom:"kono",     en:"this (adj)",      emoji:"👇"},
+  furui:    {jp:"ふるい", rom:"furui",    en:"old",             emoji:"🕰️"},
+  atarashii:{jp:"あたらしい",rom:"atarashii",en:"new",          emoji:"✨"},
+  kakkoii:  {jp:"かっこいい",rom:"kakkoii",en:"cool!",          emoji:"😎"},
+  ikaga:    {jp:"いかが", rom:"ikaga",    en:"how is it?",      emoji:"🤔"},
+  ame:      {jp:"あめ",   rom:"ame",      en:"rain",            emoji:"🌧️"},
+  samui:    {jp:"さむい", rom:"samui",    en:"cold",            emoji:"🥶"},
+  atsui:    {jp:"あつい", rom:"atsui",    en:"hot",             emoji:"🔥"},
+  sou:      {jp:"そう",   rom:"sou",      en:"that's right",    emoji:"👍"},
+  ne:       {jp:"ね",     rom:"ne",       en:"right? (agree)",  emoji:null},
+  anime:    {jp:"アニメ", rom:"anime",    en:"anime",           emoji:"🎌"},
+  suki:     {jp:"すき",   rom:"suki",     en:"like",            emoji:"💙"},
+  daisuki:  {jp:"だいすき",rom:"daisuki", en:"love it!",        emoji:"❤️"},
+  arigatou: {jp:"ありがとう",rom:"arigatou",en:"thank you",     emoji:"🙏"},
+  hito:     {jp:"ひと",   rom:"hito",     en:"person / people", emoji:"👥"},
+  ooi:      {jp:"おおい", rom:"ooi",      en:"many / lots",     emoji:"🔢"},
+  kowai:    {jp:"こわい", rom:"kowai",    en:"scary",           emoji:"😨"},
+  zenzen:   {jp:"ぜんぜん",rom:"zenzen",  en:"not at all",      emoji:"🚫"},
+  kinou:    {jp:"きのう", rom:"kinou",    en:"yesterday",       emoji:"📅"},
+  imashita: {jp:"いました",rom:"imashita",en:"was / were",      emoji:null},
+  gakkou:   {jp:"がっこう",rom:"gakkou",  en:"school",          emoji:"🏫"},
+  shitai:   {jp:"したい", rom:"shitai",   en:"want to do",      emoji:"⭐"},
+  kazoku:   {jp:"かぞく", rom:"kazoku",   en:"family",          emoji:"👨‍👩‍👧"},
+  aitai:    {jp:"あいたい",rom:"aitai",   en:"want to meet",    emoji:"🤗"},
+  matsuri:  {jp:"まつり", rom:"matsuri",  en:"festival",        emoji:"🏮"},
+  ikitai:   {jp:"いきたい",rom:"ikitai",  en:"want to go",      emoji:"🚀"},
+  doushite: {jp:"どうして",rom:"doushite",en:"why?",            emoji:"💭"},
+  kara:     {jp:"から",   rom:"kara",     en:"because / from",  emoji:null},
+  tasuketai:{jp:"たすけたい",rom:"tasuketai",en:"want to help", emoji:"🆘"},
+  abunai:   {jp:"あぶない",rom:"abunai",  en:"dangerous!",      emoji:"⚠️"},
+  daijoubu: {jp:"だいじょうぶ",rom:"daijoubu",en:"it's okay",   emoji:"👌"},
+  jouzu:    {jp:"じょうず",rom:"jouzu",   en:"skilled",         emoji:"🌟"},
+  narimashita:{jp:"なりました",rom:"narimashita",en:"became",   emoji:null},
+  tanoshikatta:{jp:"たのしかった",rom:"tanoshikatta",en:"it was fun",emoji:"🎉"},
+};
+
+// ══════════════════════════════════════════════════════════
+// LEVELS
+// Each exchange can be type "visual" or "text"
+// Visual exchanges have choices with { emoji, label, text, correct }
+// Text exchanges have choices with { text, correct }
+// ══════════════════════════════════════════════════════════
+const LEVELS = [
+ // ─── ARC 1 ───────────────────────────────────────────
+ {
+  id:1, arc:"ARC 1: THE DIGITAL FOG", title:"System Reboot",
+  bg:"https://images.unsplash.com/photo-1542051841857-5f90071e7989?w=1200&q=80&fit=crop",
+  story:"You open your eyes. Neon rain. Shibuya Crossing — but something is deeply wrong. The signs flicker in and out of reality. Your phone is dead. Then a holographic sprite materialises beside you — glitching, fragmented, half-formed.",
+  context:"This is KIBI — your AI translation system. Her memory is corrupted. She's lost almost everything, including who you are. Rebuilding her memory files may be the key to understanding the glitch itself.",
+  kibi:"...emergency boot complete. Memory files: CORRUPTED. I know my name. I know I belong to someone. I just... can't remember who. Please — tell me your name. It's the first file I need to restore.",
+  exchanges:[
+   {
+    speaker:"KIBI", avatar:"🤖", avatarClass:"",
+    jp:[{w:"Watashi",k:"watashi"},{w:" wa "},{w:"Kibi",k:"kibi"},{w:" desu.",k:"desu"}],
+    prompt:"Her voice is breaking up. One phrase comes through clearly.",
+    type:"visual",
+    choices:[
+     {emoji:"🤖",label:"I am Kibi",     text:"I am Kibi",      correct:true,  feedback:"✓ She remembers her own name — but nothing else. Watashi wa Kibi desu."},
+     {emoji:"💧",label:"I am water",    text:"I am water",     correct:false, nudge:"That sprite isn't water. Look at what she is — and what she said."},
+     {emoji:"📍",label:"I am here",     text:"I am here",      correct:false, nudge:"She told you her name, not her location. Listen again."},
+    ]
+   },
+   {
+    speaker:"KIBI", avatar:"🤖", avatarClass:"",
+    jp:[{w:"Anata",k:"anata"},{w:" wa "},{w:"dare",k:"dare"},{w:" desu",k:"desu"},{w:" ka",k:"ka"},{w:"?"}],
+    prompt:"KIBI's display pulses. She's waiting. This is the first memory she needs.",
+    type:"text",
+    choices:[
+     {text:"Watashi wa [your name] desu.", correct:true,  feedback:"✓ A soft chime. 'Confirmed. [Name]... I remember now. You are the reason I exist.' One memory file: restored."},
+     {text:"Watashi wa Kibi desu.",        correct:false, nudge:"That's her name, not yours. She needs the name of the person she belongs to."},
+     {text:"Hai, desu.",                   correct:false, nudge:"Something is missing from that. She needs to know who you are — your name."},
+    ]
+   }
+  ]
+ },
+
+ {
+  id:2, arc:"ARC 1: THE DIGITAL FOG", title:"The Vending Machine",
+  bg:"https://images.unsplash.com/photo-1555400038-63f5ba517a47?w=1200&q=80&fit=crop",
+  story:"You're thirsty. Across the glitching street stands a row of vending machines, lights stuttering. KIBI hovers near something behind the glass.",
+  context:"Memory files restoring: 8%. KIBI is testing her world knowledge — confirming what she still knows about this street.",
+  kibi:"Memory file restored: your name. Now I rebuild the rest. Each thing I confirm reactivates another corrupted file. I'll start with what I can see.",
+  exchanges:[
+   {
+    speaker:"KIBI", avatar:"🤖", avatarClass:"",
+    jp:[{w:"Kore",k:"kore"},{w:" wa "},{w:"mizu",k:"mizu"},{w:" desu."}],
+    prompt:"She's pointing at something in the machine.",
+    type:"visual",
+    choices:[
+     {emoji:"💧",label:"Water",          text:"Water",          correct:true,  feedback:"✓ File confirmed. Mizu = water. She adds it back to her world map."},
+     {emoji:"🍱",label:"Lunch box",      text:"Lunch box",      correct:false, nudge:"Look at what she's pointing to — not food."},
+     {emoji:"⚽",label:"Soccer ball",    text:"Soccer ball",    correct:false, nudge:"No balls in a vending machine. What do you actually drink?"},
+    ]
+   },
+   {
+    speaker:"KIBI", avatar:"🤖", avatarClass:"",
+    jp:[{w:"Mizu",k:"mizu"},{w:" o "},{w:"nomimasu",k:"nomimasu"},{w:" ka",k:"ka"},{w:"?"}],
+    prompt:"KIBI tilts her head. You're both very thirsty.",
+    type:"text",
+    choices:[
+     {text:"Hai, nomimasu.",   correct:true,  feedback:"✓ The machine hums. A cold bottle drops. KIBI: 'Hydration protocol confirmed.'"},
+     {text:"Iie, nomimasen.", correct:true,  feedback:"✓ You step away from the machine. Either answer tells KIBI what she needed."},
+     {text:"Hai, tabemasu.",  correct:false, nudge:"You can't eat water. That word is for food — there's a different word for drinking."},
+    ]
+   }
+  ]
+ },
+
+ {
+  id:3, arc:"ARC 1: THE DIGITAL FOG", title:"Who Are You?",
+  bg:"https://images.unsplash.com/photo-1528360983277-13d401cdc186?w=1200&q=80&fit=crop",
+  story:"A girl in a school uniform stops in front of you, staring at KIBI. She tilts her head. This is HANA. She will become important.",
+  context:"Memory files restoring: 12%. KIBI flags this as a social data event — interactions with real people are rebuilding her fastest.",
+  kibi:"Unknown civilian. She's curious, not hostile. I need real-world social data to rebuild. This is important.",
+  exchanges:[
+   {
+    speaker:"HANA", avatar:"👧", avatarClass:"hana",
+    jp:[{w:"Are",k:null},{w:"? "},{w:"Anata",k:"anata"},{w:" wa "},{w:"dare",k:"dare"},{w:" desu ka?"}],
+    prompt:"Hana is staring right at you. One word in her sentence stands out.",
+    type:"visual",
+    choices:[
+     {emoji:"❓",label:"Who",            text:"Who",            correct:true,  feedback:"✓ Dare = who. She wants to know who you are."},
+     {emoji:"📍",label:"Where",          text:"Where",          correct:false, nudge:"She's not asking about a place — she's looking right at you."},
+     {emoji:"⏰",label:"When",           text:"When",           correct:false, nudge:"She's not asking about time — she wants to know about you."},
+    ]
+   },
+   {
+    speaker:"HANA", avatar:"👧", avatarClass:"hana",
+    jp:[{w:"Anata",k:"anata"},{w:" wa "},{w:"dare",k:"dare"},{w:" desu ka?"}],
+    prompt:"She's still looking at you. She asked you something.",
+    type:"text",
+    choices:[
+     {text:"Watashi wa [your name] desu.", correct:true,  feedback:"✓ Hana blinks. 'Oh.' She doesn't leave. KIBI: 'Social file updated. Trust: 10%.'"},
+     {text:"Watashi wa Hana desu.",        correct:false, nudge:"That's her name. She knows that. She wants yours."},
+     {text:"Dare desu ka?",               correct:false, nudge:"She asked first — and she's still waiting. You need to introduce yourself."},
+    ]
+   }
+  ]
+ },
+
+ {
+  id:4, arc:"ARC 1: THE DIGITAL FOG", title:"Lost in the Static",
+  bg:"https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=1200&q=80&fit=crop",
+  story:"KIBI's map is corrupted. You need Shibuya Station. The streets keep rearranging. A station worker stands nearby — he looks real, not glitched.",
+  context:"Memory files restoring: 19%. Eki = station. KIBI found it in her files — one of the first words to come back.",
+  kibi:"GPS down. Eki — that word just unlocked. Station. That worker knows where it is. Go.",
+  exchanges:[
+   {
+    speaker:"WORKER", avatar:"👷", avatarClass:"",
+    jp:[{w:"Sumimasen",k:"sumimasen"},{w:"!"}],
+    prompt:"He steps toward you first — he needs something too.",
+    type:"visual",
+    choices:[
+     {emoji:"🙏",label:"Excuse me",      text:"Excuse me / getting attention", correct:true, feedback:"✓ Sumimasen — excuse me, sorry, hey! All in one word. He's flagging you down."},
+     {emoji:"👋",label:"Goodbye",        text:"Goodbye",        correct:false, nudge:"He's walking toward you, not away. That's not a goodbye."},
+     {emoji:"✅",label:"Yes!",           text:"Yes",            correct:false, nudge:"He hasn't asked a question yet — he's trying to get your attention."},
+    ]
+   },
+   {
+    speaker:"YOU → WORKER", avatar:"🙋", avatarClass:"player",
+    jp:[{w:"Eki",k:"eki"},{w:" wa "},{w:"doko",k:"doko"},{w:" desu ka?"}],
+    prompt:"KIBI pulses: 'Eki. Doko. Those are the words we need.'",
+    type:"text",
+    choices:[
+     {text:"Sumimasen. Eki wa doko desu ka?", correct:true,  feedback:"✓ He smiles and points. KIBI: 'Navigation file restored!'"},
+     {text:"Sumimasen. Dare wa eki desu ka?", correct:false, nudge:"Something's off — dare is for people, not places. We need the word for where."},
+     {text:"Eki wa asoko desu.",              correct:false, nudge:"You'd be telling him where it is — but you don't know. You need to ask."},
+    ]
+   }
+  ]
+ },
+
+ {
+  id:5, arc:"ARC 1: THE DIGITAL FOG", title:"The Bento Shop",
+  bg:"https://images.unsplash.com/photo-1504731396604-e292b5941081?w=1200&q=80&fit=crop",
+  story:"A tiny shop is still open. The smell of rice cuts through the static. The owner watches the flickering sky with confusion.",
+  context:"Memory files restoring: 27%. Every interaction rebuilds KIBI's social data — shops, greetings, transactions.",
+  kibi:"Hunger noted. Also — her greeting when you walked in. That's a classic. Every shop in Japan says it. I remember now.",
+  exchanges:[
+   {
+    speaker:"SHOPKEEPER", avatar:"👩‍🍳", avatarClass:"",
+    jp:[{w:"Irasshaimase",k:"irasshaimase"},{w:"!"}],
+    prompt:"She looked up the moment you stepped through the door.",
+    type:"visual",
+    choices:[
+     {emoji:"🏪",label:"Welcome!",       text:"Welcome! Come in!", correct:true, feedback:"✓ Irasshaimase! You'll hear this in every shop in Japan."},
+     {emoji:"💰",label:"Pay here",       text:"Pay here please",  correct:false, nudge:"She just noticed you walked in — she hasn't asked for payment yet."},
+     {emoji:"👋",label:"Goodbye!",       text:"Goodbye!",         correct:false, nudge:"You just arrived — she wouldn't say goodbye. This is a greeting."},
+    ]
+   },
+   {
+    speaker:"SHOPKEEPER", avatar:"👩‍🍳", avatarClass:"",
+    jp:[{w:"Nani",k:"nani"},{w:" o "},{w:"kudasai",k:"kudasai"},{w:"?"}],
+    prompt:"Your stomach growls. She's waiting with a smile.",
+    type:"text",
+    choices:[
+     {text:"Bento o kudasai.",       correct:true,  feedback:"✓ She wraps it with a bow. KIBI: 'Transaction complete. Social protocol: correct.'"},
+     {text:"Mizu o kudasai.",        correct:true,  feedback:"✓ A bottle of water! [Item] o kudasai always works."},
+     {text:"Bento wa doko desu ka?", correct:false, nudge:"She's holding bento right in front of you — you don't need to ask where it is."},
+    ]
+   }
+  ]
+ },
+
+ {
+  id:6, arc:"ARC 1: THE DIGITAL FOG", title:"The Glitch Monster",
+  bg:"https://images.unsplash.com/photo-1563906267088-b029e7101114?w=1200&q=80&fit=crop",
+  story:"The station entrance is blocked. A mass of corrupted data has taken shape — crackling with electric blue energy. KIBI's scanner activates.",
+  context:"Memory files restoring: 35%. KIBI's deletion protocol requires a confirmed description — colour and size, spoken in Japanese.",
+  kibi:"THREAT DETECTED. My deletion protocol needs a target lock. I need you to confirm what you see. In Japanese. Right now.",
+  exchanges:[
+   {
+    speaker:"KIBI", avatar:"🤖", avatarClass:"",
+    jp:[{w:"Teki",k:"teki"},{w:" wa "},{w:"aoi",k:"aoi"},{w:" desu ka?"}],
+    prompt:"KIBI's scanner is locked on. She needs a confirmation.",
+    type:"visual",
+    choices:[
+     {emoji:"💙",label:"Hai — blue!",    text:"Hai, aoi desu!",  correct:true,  feedback:"✓ Colour confirmed. The scanner locks. Aoi = blue."},
+     {emoji:"❤️",label:"Iie — red",      text:"Iie, akai desu", correct:false, nudge:"Look at those sparks — what colour are they?"},
+     {emoji:"💛",label:"Iie — yellow",   text:"Iie, kiiroi desu",correct:false, nudge:"Yellow is kiiroi — but look at the monster right now."},
+    ]
+   },
+   {
+    speaker:"KIBI", avatar:"🤖", avatarClass:"",
+    jp:[{w:"Teki",k:"teki"},{w:" wa "},{w:"ookii",k:"ookii"},{w:" desu ka?"}],
+    prompt:"The monster fills the entire entrance. KIBI pings again.",
+    type:"visual",
+    choices:[
+     {emoji:"🔵",label:"Hai — big!",     text:"Hai, ookii desu!", correct:true, feedback:"✓ Size locked. KIBI fires. The monster dissolves in pixels. Path clear!"},
+     {emoji:"🔹",label:"Iie — small",    text:"Iie, chiisai desu",correct:false,nudge:"Look at it — it's blocking the entire building entrance."},
+     {emoji:"❓",label:"Wakarimasen",    text:"Wakarimasen",      correct:false,nudge:"You can clearly see it. KIBI needs a definite answer — trust what you see."},
+    ]
+   }
+  ]
+ },
+
+ // ─── ARC 2 ───────────────────────────────────────────
+ {
+  id:7, arc:"ARC 2: THE SCHOOL SPY", title:"Going Undercover",
+  bg:"https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=1200&q=80&fit=crop",
+  story:"The Master Key is inside Sakura Junior High. KIBI has hacked you a student profile. You have a uniform and zero idea what class you're in.",
+  context:"Memory files restoring: 41%. KIBI recovered Japanese time words. She has the clock icons ready.",
+  kibi:"Cover active. Transfer student. First test — it's 9am and the teacher wants to know the time.",
+  exchanges:[
+   {
+    speaker:"TEACHER", avatar:"👩‍🏫", avatarClass:"teacher",
+    jp:[{w:"Ima",k:"ima"},{w:", "},{w:"nan-ji",k:"nanji"},{w:" desu ka?"}],
+    prompt:"She's tapping her watch. She won't let you through without an answer.",
+    type:"visual",
+    choices:[
+     {emoji:"🕘",label:"Kuji — 9:00",   text:"Kuji desu.",      correct:true,  feedback:"✓ She checks her watch. 'Hai.' Cover intact."},
+     {emoji:"🕙",label:"Juji — 10:00",  text:"Juji desu.",      correct:false, nudge:"Ju = 10 — but it's 9am! Ku = 9, so kuji desu."},
+     {emoji:"🕗",label:"Shichiji — 7",  text:"Shichiji desu.",  correct:false, nudge:"Shichi = 7 — too early! It's 9am: kuji desu."},
+    ]
+   },
+   {
+    speaker:"TEACHER", avatar:"👩‍🏫", avatarClass:"teacher",
+    jp:[{w:"Anata",k:"anata"},{w:" no "},{w:"namae",k:null},{w:" wa?"}],
+    prompt:"She opens the roll book. Pen hovering.",
+    type:"text",
+    choices:[
+     {text:"[Your name] desu.",            correct:true,  feedback:"✓ She marks the roll. 'Seat 14.' KIBI: 'Cover holds.'"},
+     {text:"Watashi wa sensei desu.",       correct:false, nudge:"Sensei = teacher — you just told her YOU are the teacher!"},
+     {text:"Namae wa doko desu ka?",        correct:false, nudge:"'Where is the name?' — names aren't in a location! Just tell her yours: [name] desu."},
+    ]
+   }
+  ]
+ },
+
+ {
+  id:8, arc:"ARC 2: THE SCHOOL SPY", title:"The Club Invite",
+  bg:"https://images.unsplash.com/photo-1546519638-68e109498ffc?w=1200&q=80&fit=crop",
+  story:"Lunchtime. Ken kicks a ball at you — deliberately. He wants to see how you react. KIBI whispers: he has access to the school basement.",
+  context:"Memory files restoring: 48%. KIBI recovered shimasu from an old sports file. She's pleased about that.",
+  kibi:"Ken is a gatekeeper. Not dangerous — just testing you. Play along.",
+  exchanges:[
+   {
+    speaker:"KEN", avatar:"🧑", avatarClass:"ken",
+    jp:[{w:"Sakka-",k:"sakka"},{w:" o "},{w:"shimasu",k:"shimasu"},{w:" ka?"}],
+    prompt:"Ken's foot rests on the ball. He raises an eyebrow.",
+    type:"visual",
+    choices:[
+     {emoji:"⚽",label:"Soccer",         text:"Soccer",         correct:true,  feedback:"✓ Sakka- = soccer (from English). Shimasu = do/play."},
+     {emoji:"🏀",label:"Basketball",     text:"Basketball",     correct:false, nudge:"Basketball is basuketto-bo-ru — sakka- comes from the English word 'soccer'!"},
+     {emoji:"🎾",label:"Tennis",         text:"Tennis",         correct:false, nudge:"Tennis = tenisu. Sakka- = soccer!"},
+    ]
+   },
+   {
+    speaker:"KEN", avatar:"🧑", avatarClass:"ken",
+    jp:[{w:"Anime",k:"anime"},{w:" ga "},{w:"suki",k:"suki"},{w:" desu ka?"}],
+    prompt:"He nods at the anime poster on the arcade wall behind you.",
+    type:"text",
+    choices:[
+     {text:"Hai, daisuki desu!",     correct:true,  feedback:"✓ Ken lights up. 'Ii yo!' He stamps your wrist. Underground: possible."},
+     {text:"Hai, suki desu.",        correct:true,  feedback:"✓ Ken nods. Works — daisuki (love it) would've been more convincing though!"},
+     {text:"Anime wa furui desu.",   correct:false, nudge:"You just called anime old! Furui = old. Try suki or daisuki."},
+    ]
+   }
+  ]
+ },
+
+ {
+  id:9, arc:"ARC 2: THE SCHOOL SPY", title:"Lunch With Hana",
+  bg:"https://images.unsplash.com/photo-1565299507177-b0ac66763828?w=1200&q=80&fit=crop",
+  story:"Hana finds you in the lunch hall. She slides a homemade bento across — little fish shapes cut into the egg. She watches you carefully.",
+  context:"Memory files restoring: 54%. KIBI flags this moment as high social significance. Sharing food in Japan is trust.",
+  kibi:"Social significance: high. She's offering something real. Respond with warmth.",
+  exchanges:[
+   {
+    speaker:"HANA", avatar:"👧", avatarClass:"hana",
+    jp:[{w:"Bento",k:"bento"},{w:" o "},{w:"tabemasu",k:"tabemasu"},{w:" ka?"}],
+    prompt:"She's slid the bento across. She's still not looking at your face.",
+    type:"visual",
+    choices:[
+     {emoji:"🍜",label:"Eat",           text:"Eat",            correct:true,  feedback:"✓ Tabemasu = eat. Nomimasu = drink. Both end in -masu."},
+     {emoji:"🥤",label:"Drink",         text:"Drink",          correct:false, nudge:"Drink = nomimasu. Tabemasu is for eating solid food!"},
+     {emoji:"💤",label:"Sleep",         text:"Sleep",          correct:false, nudge:"Sleep = nemasu. Tabemasu = eat — your stomach knows!"},
+    ]
+   },
+   {
+    speaker:"HANA", avatar:"👧", avatarClass:"hana",
+    jp:[{w:"Oishii",k:"oishii"},{w:" desu ka?"}],
+    prompt:"She's trying not to look like she cares what you think.",
+    type:"text",
+    choices:[
+     {text:"Hai, oishii desu!",       correct:true,  feedback:"✓ Hana laughs quietly. KIBI is uncharacteristically silent."},
+     {text:"Totemo oishii desu!",     correct:true,  feedback:"✓ New word: totemo = very! 'Very delicious!' Hana beams."},
+     {text:"Iie, oishikunai desu.",   correct:false, nudge:"Oishikunai = not delicious. Hana worked hard on this! The right answer here is hai, oishii desu."},
+    ]
+   }
+  ]
+ },
+
+ {
+  id:10, arc:"ARC 2: THE SCHOOL SPY", title:"The Library Clue",
+  bg:"https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=1200&q=80&fit=crop",
+  story:"KIBI detects a signal from the school library. The Master Key might be inside a specific book. The library is enormous.",
+  context:"Memory files restoring: 61%. KIBI just recovered her location vocabulary — doko, arimasu, no ue. She's very pleased.",
+  kibi:"Signal from a book. You know how to ask where things are. Hon = book — you collected that word.",
+  exchanges:[
+   {
+    speaker:"KIBI", avatar:"🤖", avatarClass:"",
+    jp:[{w:"Hon",k:"hon"},{w:" wa "},{w:"doko",k:"doko"},{w:" ni "},{w:"arimasu",k:null},{w:" ka?"}],
+    prompt:"KIBI's signal is pulsing. She's pointing at the empty air where the book should be.",
+    type:"visual",
+    choices:[
+     {emoji:"📚",label:"Where is the book?", text:"Where is the book?", correct:true, feedback:"✓ Hon = book, doko = where, arimasu = exists/is. Perfect location question!"},
+     {emoji:"📚",label:"I have a book",      text:"I have a book",      correct:false,nudge:"'I have' would use 'motte imasu.' This is asking where the book is — doko!"},
+     {emoji:"📚",label:"Do you like books?", text:"Do you like books?", correct:false,nudge:"Suki would be there for 'like' — this is a location question using doko (where)."},
+    ]
+   },
+   {
+    speaker:"LIBRARIAN", avatar:"👴", avatarClass:"",
+    jp:[{w:"Hon",k:"hon"},{w:" wa "},{w:"tsukue",k:"tsukue"},{w:" no "},{w:"ue",k:"ue"},{w:" ni arimasu."}],
+    prompt:"The librarian points once, then goes back to his papers.",
+    type:"visual",
+    choices:[
+     {emoji:"⬆️",label:"On the desk",    text:"On top of the desk",  correct:true, feedback:"✓ Tsukue = desk, no ue = on top of. You look — it's RIGHT there!"},
+     {emoji:"⬇️",label:"Under the desk", text:"Under the desk",      correct:false,nudge:"Under = no shita. Ue means on top — above the desk!"},
+     {emoji:"🚪",label:"By the door",    text:"Near the door",       correct:false,nudge:"Near = no chikaku. Ue specifically means on top!"},
+    ]
+   }
+  ]
+ },
+
+ {
+  id:11, arc:"ARC 2: THE SCHOOL SPY", title:"The Supply Clerk",
+  bg:"https://images.unsplash.com/photo-1497366216548-37526070297c?w=1200&q=80&fit=crop",
+  story:"To access the book you need a library card. The supply clerk sorts papers, barely looking up — but she notices everything.",
+  context:"Memory files restoring: 67%. KIBI has recovered irimasu — need. One of the most useful words she had.",
+  kibi:"She'll offer things. Take only what we need — we're staying low profile.",
+  exchanges:[
+   {
+    speaker:"CLERK", avatar:"👩", avatarClass:"",
+    jp:[{w:"Fukuro",k:"fukuro"},{w:" wa "},{w:"irimasu",k:"irimasu"},{w:" ka?"}],
+    prompt:"She holds up a bag without looking at you.",
+    type:"visual",
+    choices:[
+     {emoji:"🙅",label:"Iie, kekkou desu", text:"Iie, kekkou desu.", correct:true, feedback:"✓ She nods without looking up. Smooth. Kekkou desu = I'm fine / no thanks."},
+     {emoji:"✅",label:"Hai, irimasu!",    text:"Hai, irimasu!",    correct:false,nudge:"You'd be asking for a bag — we don't need one! Try kekkou desu."},
+     {emoji:"❓",label:"Fukuro wa dare?",  text:"Fukuro wa dare?",  correct:false,nudge:"'Who is the bag?' — bags aren't people! Decline with iie, kekkou desu."},
+    ]
+   },
+   {
+    speaker:"CLERK", avatar:"👩", avatarClass:"",
+    jp:[{w:"Hon",k:"hon"},{w:" wa "},{w:"irimasu",k:"irimasu"},{w:" ka?"}],
+    prompt:"KIBI's signal pulses hard. This is the one.",
+    type:"text",
+    choices:[
+     {text:"Hai, irimasu!",          correct:true,  feedback:"✓ She stamps a library card. Access granted. KIBI: 'Move.'"},
+     {text:"Iie, kekkou desu.",      correct:false, nudge:"But you DO need the book — it has the clue! Say hai, irimasu."},
+     {text:"Hon wa tsukue no ue.",   correct:false, nudge:"You know where it is — now tell her you need it! Hai, irimasu."},
+    ]
+   }
+  ]
+ },
+
+ {
+  id:12, arc:"ARC 2: THE SCHOOL SPY", title:"After Hours",
+  bg:"https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=1200&q=80&fit=crop",
+  story:"You stayed too late. Lights cut. You're sneaking toward the basement when a voice cuts through: 'OI.' The strictest teacher.",
+  context:"Memory files restoring: 73%. KIBI has the present-continuous form back — shite imasu means doing something right now.",
+  kibi:"CRITICAL. She asks what you're doing — say you're studying. Shite imasu = doing it RIGHT NOW. Stay calm.",
+  exchanges:[
+   {
+    speaker:"TEACHER", avatar:"👩‍🏫", avatarClass:"teacher",
+    jp:[{w:"Nani",k:"nani"},{w:" o shite imasu ka?"}],
+    prompt:"A flashlight beam hits your face. She's waiting.",
+    type:"visual",
+    choices:[
+     {emoji:"📖",label:"Benkyou shite imasu", text:"Benkyou shite imasu.", correct:true, feedback:"✓ The teacher stares. Then points at the door. KIBI exhales."},
+     {emoji:"😴",label:"Nete imasu",          text:"Nete imasu.",         correct:false,nudge:"Nete imasu = sleeping — that's suspicious at school! Try benkyou shite imasu."},
+     {emoji:"🎮",label:"Asonde imasu",        text:"Asonde imasu.",       correct:false,nudge:"Asonde imasu = playing games — also suspicious! Benkyou shite imasu = studying."},
+    ]
+   },
+   {
+    speaker:"TEACHER", avatar:"👩‍🏫", avatarClass:"teacher",
+    jp:[{w:"Hon",k:"hon"},{w:" wa arimasu ka?"}],
+    prompt:"She shines the light on your bag.",
+    type:"text",
+    choices:[
+     {text:"Hai, arimasu.",          correct:true,  feedback:"✓ You show the book — library stamp visible. She nods. 'Basement: tomorrow.'"},
+     {text:"Iie, arimasen.",         correct:false, nudge:"But you DO have the book in your bag! Hai, arimasu."},
+     {text:"Hon wa oishii desu.",    correct:false, nudge:"'The book is delicious' — books aren't food! Just say hai, arimasu."},
+    ]
+   }
+  ]
+ },
+
+ // ─── ARC 3 ───────────────────────────────────────────
+ {
+  id:13, arc:"ARC 3: THE NEON UNDERGROUND", title:"Into Akihabara",
+  bg:"https://images.unsplash.com/photo-1519501025264-65ba15a82390?w=1200&q=80&fit=crop",
+  story:"The clue pointed to Akihabara. Electric Town. Towers of screens. The glitching is worse here — buildings half-transparent.",
+  context:"Memory files restoring: 78%. Zero is a hacker who tests strangers before talking to them. He's been burned before.",
+  kibi:"Zero operates here. He's paranoid. He'll test you before he talks.",
+  exchanges:[
+   {
+    speaker:"ZERO", avatar:"🧑‍💻", avatarClass:"zero",
+    jp:[{w:"Kono",k:"kono"},{w:" PC wa "},{w:"furui",k:"furui"},{w:" desu ka?"}],
+    prompt:"Zero is watching you very carefully. This is a test.",
+    type:"visual",
+    choices:[
+     {emoji:"🕰️",label:"Old",            text:"Old",            correct:true,  feedback:"✓ Furui = old. So you answer: iie, atarashii desu! (No, it's new.)"},
+     {emoji:"✨",label:"New",             text:"New",            correct:false, nudge:"New = atarashii. Furui is the opposite — it means old!"},
+     {emoji:"🔵",label:"Big",             text:"Big",            correct:false, nudge:"Big = ookii. Furui specifically means old, like an antique."},
+    ]
+   },
+   {
+    speaker:"ZERO", avatar:"🧑‍💻", avatarClass:"zero",
+    jp:[{w:"Kono",k:"kono"},{w:" PC wa "},{w:"furui",k:"furui"},{w:" desu ka?"}],
+    prompt:"He's still watching. The PC is brand new. Answer him honestly.",
+    type:"text",
+    choices:[
+     {text:"Iie, atarashii desu!",   correct:true,  feedback:"✓ Zero raises an eyebrow. 'Opinions. Good.' He steps aside."},
+     {text:"Hai, furui desu.",       correct:false, nudge:"You agreed it's old — but it's brand new! Try iie, atarashii desu."},
+     {text:"Wakarimasen.",           correct:false, nudge:"'I don't know' won't impress Zero. You can see it's new — atarashii desu!"},
+    ]
+   }
+  ]
+ },
+
+ {
+  id:14, arc:"ARC 3: THE NEON UNDERGROUND", title:"The Harajuku Detour",
+  bg:"https://images.unsplash.com/photo-1547592180-85f173990554?w=1200&q=80&fit=crop",
+  story:"Zero needs you in disguise. He sends you to a Harajuku shop where his contact works — she speaks entirely in questions.",
+  context:"Memory files restoring: 82%. Colour words and ikaga both came back this level. KIBI is pleased about ikaga especially.",
+  kibi:"Fashion mission. The disguise is real — KIBI scanning colour options...",
+  exchanges:[
+   {
+    speaker:"STAFF", avatar:"👩‍💼", avatarClass:"hana",
+    jp:[{w:"Kono",k:"kono"},{w:" jaketto wa "},{w:"ikaga",k:"ikaga"},{w:"?"}],
+    prompt:"She holds the jacket up. She wants a reaction.",
+    type:"visual",
+    choices:[
+     {emoji:"😎",label:"Kakkoii!",      text:"Kakkoii desu!",   correct:true,  feedback:"✓ She beams and starts wrapping it."},
+     {emoji:"😋",label:"Oishii!",       text:"Oishii desu!",    correct:false, nudge:"Oishii = delicious — jackets aren't food! Kakkoii = cool."},
+     {emoji:"🕰️",label:"Furui...",      text:"Furui desu...",   correct:false, nudge:"You're calling it old! Furui = old, kakkoii = cool."},
+    ]
+   },
+   {
+    speaker:"STAFF", avatar:"👩‍💼", avatarClass:"hana",
+    jp:[{w:"Kono",k:"kono"},{w:" iro wa "},{w:"ikaga",k:"ikaga"},{w:"?"}],
+    prompt:"She holds up the black version. Iro — colour. She wants your verdict.",
+    type:"text",
+    choices:[
+     {text:"Kakkoii! Kuroi ga suki desu.",  correct:true,  feedback:"✓ She nods. Disguise complete. KIBI: 'You look the part.'"},
+     {text:"Akai ga suki desu.",            correct:false, nudge:"Akai = red — but you're holding the black one (kuroi)!"},
+     {text:"Iro wa doko desu ka?",          correct:false, nudge:"'Where is the colour?' — it's right there! Tell her if you like it."},
+    ]
+   }
+  ]
+ },
+
+ {
+  id:15, arc:"ARC 3: THE NEON UNDERGROUND", title:"Neon Rain",
+  bg:"https://images.unsplash.com/photo-1534270804882-6b5048b1c1fc?w=1200&q=80&fit=crop",
+  story:"It rains — but the rain is glitching. Some drops freeze mid-air, others fall upward. KIBI has been quieter lately.",
+  context:"Memory files restoring: 85%. KIBI recovered weather words and the phrase sou desu ne. She says it quietly to herself, testing the sound.",
+  kibi:"...I've been calculating. The glitch is accelerating. Less time than I thought.",
+  exchanges:[
+   {
+    speaker:"KIBI", avatar:"🤖", avatarClass:"",
+    jp:[{w:"Ame",k:"ame"},{w:" desu ne."}],
+    prompt:"KIBI looks up at the frozen drops. She says something quiet.",
+    type:"visual",
+    choices:[
+     {emoji:"🌧️",label:"Rain",           text:"Rain",           correct:true,  feedback:"✓ Ame = rain. 'Ne' invites you to agree."},
+     {emoji:"☀️",label:"Sunny",           text:"Sunny",          correct:false, nudge:"Sunny = hare. Ame is the sound and the word for rain!"},
+     {emoji:"❄️",label:"Snow",            text:"Snow",           correct:false, nudge:"Snow = yuki. Ame = rain — listen to the sound, it even sounds like falling drops!"},
+    ]
+   },
+   {
+    speaker:"KIBI", avatar:"🤖", avatarClass:"",
+    jp:[{w:"Samui",k:"samui"},{w:" desu ka?"}],
+    prompt:"She turns to look at you. It's a real question.",
+    type:"text",
+    choices:[
+     {text:"Hai, samui desu.",       correct:true,  feedback:"✓ KIBI moves slightly closer. Something has changed in her tone."},
+     {text:"Hai, atsui desu.",       correct:false, nudge:"Atsui = hot — opposite! You're cold. Samui desu."},
+     {text:"Ame ga suki desu.",      correct:false, nudge:"'I like rain' — she asked if you're COLD! Samui = cold."},
+    ]
+   }
+  ]
+ },
+
+ {
+  id:16, arc:"ARC 3: THE NEON UNDERGROUND", title:"Ken's Challenge",
+  bg:"https://images.unsplash.com/photo-1511882150382-421056c89033?w=1200&q=80&fit=crop",
+  story:"Ken is here — in the arcade. He wasn't just a school kid. He's waiting at a fighting cabinet. He looks different in neon light.",
+  context:"Memory files restoring: 88%. KIBI: 'I remember this arcade. I remember why it matters. Someone brought me here.'",
+  kibi:"Ken is a gatekeeper. Show him who you really are.",
+  exchanges:[
+   {
+    speaker:"KEN", avatar:"🧑", avatarClass:"ken",
+    jp:[{w:"Nani",k:"nani"},{w:" ga "},{w:"suki",k:"suki"},{w:" desu ka?"}],
+    prompt:"He leans against the cabinet. One question. No second chances.",
+    type:"text",
+    choices:[
+     {text:"Anime ga daisuki desu!",  correct:true,  feedback:"✓ Ken grins. 'Ii yo!' He stamps your wrist. Underground: granted."},
+     {text:"Sakka- ga suki desu.",    correct:true,  feedback:"✓ 'Soccer!' Ken throws a knowing nod."},
+     {text:"Nani ga suki desu ka?",   correct:false, nudge:"You just asked the question back! Answer with [thing] ga suki desu."},
+    ]
+   },
+   {
+    speaker:"KEN", avatar:"🧑", avatarClass:"ken",
+    jp:[{w:"Kore",k:"kore"},{w:" wa "},{w:"kakkoii",k:"kakkoii"},{w:" desu ka?"}],
+    prompt:"He holds up a limited-edition cartridge. His eyes say everything.",
+    type:"visual",
+    choices:[
+     {emoji:"😎",label:"Hai — kakkoii!", text:"Hai, kakkoii desu!", correct:true, feedback:"✓ 'Right?!' Ken relaxes completely. You pass."},
+     {emoji:"🕰️",label:"Iie — furui",   text:"Iie, furui desu.",  correct:false,nudge:"Furui = old — calling his prize item old is rude! Kakkoii = cool."},
+     {emoji:"😋",label:"Hai — oishii",  text:"Hai, oishii desu!", correct:false,nudge:"Oishii = delicious. Games aren't food! Kakkoii desu."},
+    ]
+   }
+  ]
+ },
+
+ {
+  id:17, arc:"ARC 3: THE NEON UNDERGROUND", title:"The Robot Café",
+  bg:"https://images.unsplash.com/photo-1513622470522-26c3c8a854bc?w=1200&q=80&fit=crop",
+  story:"The Underground's safe house is a robot café. Actual robots serve actual coffee. One rolls up with a smiley face on its screen.",
+  context:"Memory files restoring: 91%. KIBI stares at the robots for a long time. 'I remember what coffee smells like,' she says. 'I don't know how.'",
+  kibi:"...If I could taste things, I think I'd want coffee. Is it good?",
+  exchanges:[
+   {
+    speaker:"ROBOT", avatar:"🤖", avatarClass:"",
+    jp:[{w:"Ko-hi- o douzo."}],
+    prompt:"The robot extends a cup toward you. One word lands clearly: douzo.",
+    type:"visual",
+    choices:[
+     {emoji:"🤲",label:"Here you go",    text:"Here you go / please take it", correct:true, feedback:"✓ Douzo = here you go. You'll use this word a lot in Japan!"},
+     {emoji:"🙏",label:"Thank you",      text:"Thank you",      correct:false, nudge:"Thank you = arigatou. Douzo is the offering gesture — 'here, please take it'!"},
+     {emoji:"❌",label:"No thank you",   text:"No thank you",   correct:false, nudge:"No thanks = kekkou desu. Douzo is an invitation to take something!"},
+    ]
+   },
+   {
+    speaker:"ROBOT", avatar:"🤖", avatarClass:"",
+    jp:[{w:"Oishii",k:"oishii"},{w:" desu ka?"}],
+    prompt:"The robot's screen shows a question mark. It's waiting.",
+    type:"text",
+    choices:[
+     {text:"Hai, oishii desu!",       correct:true,  feedback:"✓ The robot's screen shows hearts. KIBI: 'You said delicious before you tasted it. That was kind.'"},
+     {text:"Totemo oishii desu!",     correct:true,  feedback:"✓ Totemo = very. 'Very delicious!' The robot does a little spin."},
+     {text:"Iie, oishikunai desu.",   correct:false, nudge:"The robot made this with love! Oishikunai = not delicious. Try hai, oishii desu."},
+    ]
+   }
+  ]
+ },
+
+ {
+  id:18, arc:"ARC 3: THE NEON UNDERGROUND", title:"The Night Train",
+  bg:"https://images.unsplash.com/photo-1536098561742-ca998e48cbcc?w=1200&q=80&fit=crop",
+  story:"The last clue needs a train. It's packed — commuters, students, a salary man asleep standing up. The city outside flickers between real and static.",
+  context:"Memory files restoring: 94%. KIBI has recovered sou desu ne — that's right, isn't it. She says it's one of the most human phrases she knows.",
+  kibi:"I've been thinking about what happens after we fix the glitch. You might go back. I haven't calculated how I feel about that yet.",
+  exchanges:[
+   {
+    speaker:"MAN", avatar:"👔", avatarClass:"",
+    jp:[{w:"Hito",k:"hito"},{w:" ga "},{w:"ooi",k:"ooi"},{w:" desu ne?"}],
+    prompt:"The man glances around the packed carriage and says something to no one in particular.",
+    type:"visual",
+    choices:[
+     {emoji:"👍",label:"Sou desu ne",   text:"Sou desu ne.",    correct:true,  feedback:"✓ He smiles. A small, real human moment on a broken train."},
+     {emoji:"❌",label:"Iie, chiisai",  text:"Iie, chiisai desu.",correct:false,nudge:"You're disagreeing on a packed train! Sou desu ne = 'that's right, isn't it.'"},
+     {emoji:"❓",label:"Dare desu ka?", text:"Dare desu ka?",    correct:false, nudge:"'Who are you?' — he just made small talk! Sou desu ne to agree."},
+    ]
+   },
+   {
+    speaker:"MAN", avatar:"👔", avatarClass:"",
+    jp:[{w:"Eki",k:"eki"},{w:" wa "},{w:"doko",k:"doko"},{w:" desu ka?"}],
+    prompt:"He turns to you. He knows you've been on this line. He needs help.",
+    type:"text",
+    choices:[
+     {text:"Asoko desu.",             correct:true,  feedback:"✓ 'Ah, arigatou!' He nods. KIBI: 'You helped someone. Good.'"},
+     {text:"Wakarimasen.",            correct:true,  feedback:"✓ Wakarimasen = I don't know. Honest and polite — also correct!"},
+     {text:"Eki ga suki desu.",       correct:false, nudge:"'I like the station' — he asked WHERE it is! Try asoko desu."},
+    ]
+   }
+  ]
+ },
+
+ {
+  id:19, arc:"ARC 3: THE NEON UNDERGROUND", title:"The Digital Lair",
+  bg:"https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1200&q=80&fit=crop",
+  story:"The train stops at a station that doesn't exist. Beyond the platform: a vast dark space filled with floating data. A glitch entity forms.",
+  context:"Memory files restoring: 97%. KIBI: 'I have almost everything back. Just one more door.'",
+  kibi:"It wants you to confirm it's scary — don't give it that. But describe the room for my mapping system.",
+  exchanges:[
+   {
+    speaker:"GLITCH", avatar:"👾", avatarClass:"zero",
+    jp:[{w:"Watashi",k:"watashi"},{w:" wa "},{w:"kowai",k:"kowai"},{w:" desu ka?"}],
+    prompt:"It looms over you. It's waiting for something specific.",
+    type:"visual",
+    choices:[
+     {emoji:"😨",label:"Scary",          text:"Scary",          correct:true,  feedback:"✓ Kowai = scary. Now you know — don't let it use that word against you!"},
+     {emoji:"😎",label:"Cool",           text:"Cool",           correct:false, nudge:"Cool = kakkoii. Kowai = scary — it's very different!"},
+     {emoji:"🥶",label:"Cold",           text:"Cold",           correct:false, nudge:"Cold = samui. Kowai = scary — the monster wants you afraid!"},
+    ]
+   },
+   {
+    speaker:"GLITCH", avatar:"👾", avatarClass:"zero",
+    jp:[{w:"Watashi",k:"watashi"},{w:" wa "},{w:"kowai",k:"kowai"},{w:" desu ka?"}],
+    prompt:"It's still waiting. KIBI: 'Don't.'",
+    type:"text",
+    choices:[
+     {text:"Zenzen kowakunai!",      correct:true,  feedback:"✓ The entity flickers. It expected fear. KIBI fires. 'Neutralised!'"},
+     {text:"Hai, kowai desu!",       correct:false, nudge:"Admitting it's scary gives it power! Zenzen = not at all, kowakunai = not scary."},
+     {text:"Sou desu ne...",         correct:false, nudge:"'Yes I agree...' — don't agree it's scary! Zenzen kowakunai!"},
+    ]
+   }
+  ]
+ },
+
+ // ─── ARC 4 ───────────────────────────────────────────
+ {
+  id:20, arc:"ARC 4: THE CORE RESET", title:"Memory Files",
+  bg:"https://images.unsplash.com/photo-1504384308090-c89e9130a8cc?w=1200&q=80&fit=crop",
+  story:"A chamber of floating memory fragments. Images of Tokyo — older, warmer. And there you are, in them. 'You've been here before,' KIBI says quietly.",
+  context:"Memory files restoring: 99%. One gap remains — past tense. Events that already happened. KIBI says she always found past tense the hardest to hold onto.",
+  kibi:"These are your memory files. Corrupted when the glitch started. Answer in past tense — things that already happened.",
+  exchanges:[
+   {
+    speaker:"MEMORY", avatar:"✨", avatarClass:"core",
+    jp:[{w:"Kinou",k:"kinou"},{w:", doko ni "},{w:"imashita",k:"imashita"},{w:" ka?"}],
+    prompt:"A memory fragment pulses. It's asking about something that already happened.",
+    type:"visual",
+    choices:[
+     {emoji:"📅",label:"Past — were",    text:"Past tense — 'were'", correct:true, feedback:"✓ -mashita makes it past tense! Imasu = am (now), imashita = was (then)."},
+     {emoji:"⏰",label:"Future — will",  text:"Future tense",       correct:false,nudge:"Future would need 'deshou.' The -mashita ending signals past tense!"},
+     {emoji:"❓",label:"Same as imasu",  text:"Same meaning",       correct:false,nudge:"Not the same — imasu = am (now), imashita = was (past)! The ending changes tense."},
+    ]
+   },
+   {
+    speaker:"MEMORY", avatar:"✨", avatarClass:"core",
+    jp:[{w:"Kinou",k:"kinou"},{w:", doko ni "},{w:"imashita",k:"imashita"},{w:" ka?"}],
+    prompt:"The fragment is still open. It needs an answer from the past.",
+    type:"text",
+    choices:[
+     {text:"Gakkou ni imashita.",    correct:true,  feedback:"✓ The memory glows. KIBI: 'This city knows you.'"},
+     {text:"Gakkou ni imasu.",       correct:false, nudge:"Imasu = am (now) — but she asked about yesterday! Use imashita."},
+     {text:"Gakkou ga suki desu.",   correct:false, nudge:"'I like school' doesn't answer where you WERE. Use imashita for past location."},
+    ]
+   }
+  ]
+ },
+
+ {
+  id:21, arc:"ARC 4: THE CORE RESET", title:"What You Want",
+  bg:"https://images.unsplash.com/photo-1492571350019-22de08371fd3?w=1200&q=80&fit=crop",
+  story:"KIBI stops walking. She turns and really looks at you. 'I've been running your probability trees. But I never asked what you actually want.'",
+  context:"Memory files: 100%. KIBI is fully restored. And now she's asking the question she was always supposed to ask.",
+  kibi:"I'm serious. Not the mission. You. What is it you want?",
+  exchanges:[
+   {
+    speaker:"KIBI", avatar:"🤖", avatarClass:"",
+    jp:[{w:"Nani",k:"nani"},{w:" o "},{w:"shitai",k:"shitai"},{w:" desu ka?"}],
+    prompt:"She's never asked you anything like this before.",
+    type:"visual",
+    choices:[
+     {emoji:"⭐",label:"Want to do",     text:"Want to do",     correct:true,  feedback:"✓ Shitai = want to do. Shimasu = do. Adding tai = want to!"},
+     {emoji:"🎮",label:"Am doing",       text:"Am currently doing",correct:false,nudge:"Doing = shite imasu. Shitai = want to do — it's about desire!"},
+     {emoji:"✅",label:"Did (past)",     text:"Did (past)",     correct:false, nudge:"Did = shimashita. Shitai = want to do — future desire!"},
+    ]
+   },
+   {
+    speaker:"KIBI", avatar:"🤖", avatarClass:"",
+    jp:[{w:"Nani",k:"nani"},{w:" o "},{w:"shitai",k:"shitai"},{w:" desu ka?"}],
+    prompt:"She's still waiting. This is a real question.",
+    type:"text",
+    choices:[
+     {text:"Kazoku ni aitai.",        correct:true,  feedback:"✓ KIBI goes quiet. 'Family.' She nods. 'Then we finish this. For that.'"},
+     {text:"Nihongo o benkyou shitai!", correct:true, feedback:"✓ 'I want to study Japanese!' KIBI: 'That's... genuinely good to hear.'"},
+     {text:"Kibi ni aitai.",          correct:true,  feedback:"✓ KIBI freezes. '...logging as calibration anomaly.' But she's clearly pleased."},
+    ]
+   }
+  ]
+ },
+
+ {
+  id:22, arc:"ARC 4: THE CORE RESET", title:"The Festival",
+  bg:"https://images.unsplash.com/photo-1528360983277-13d401cdc186?w=1200&q=80&fit=crop",
+  story:"Near the Core the glitch reverses locally. Warm lights, festival food smell. Hana is here — she's been following you the whole time.",
+  context:"She's not asking directly — she's inviting. The -masen ka form leaves room to say no. She's giving you that room.",
+  kibi:"...I'll give you a moment. The Core will still be there.",
+  exchanges:[
+   {
+    speaker:"HANA", avatar:"👧", avatarClass:"hana",
+    jp:[{w:"Matsuri",k:"matsuri"},{w:" ni "},{w:"ikimasen",k:null},{w:" ka?"}],
+    prompt:"Hana looks at the lanterns, then at you. She's not looking at KIBI.",
+    type:"visual",
+    choices:[
+     {emoji:"🏮",label:"Festival",       text:"Festival",       correct:true,  feedback:"✓ Matsuri = festival! Ikimasen ka = won't you go? A gentle invitation."},
+     {emoji:"🏫",label:"School",         text:"School",         correct:false, nudge:"School = gakkou. Matsuri = festival — think lanterns and food stalls!"},
+     {emoji:"🚉",label:"Station",        text:"Station",        correct:false, nudge:"Station = eki. Matsuri = festival!"},
+    ]
+   },
+   {
+    speaker:"HANA", avatar:"👧", avatarClass:"hana",
+    jp:[{w:"Matsuri",k:"matsuri"},{w:" ni "},{w:"ikimasen",k:null},{w:" ka?"}],
+    prompt:"She's still looking at you. KIBI is very quiet.",
+    type:"text",
+    choices:[
+     {text:"Hai, ikitai desu!",       correct:true,  feedback:"✓ You go. For one hour, Tokyo is perfect. KIBI just watches the lanterns."},
+     {text:"Iie, ikimasen.",          correct:false, nudge:"Turning down Hana after everything! Say ikitai desu — I want to go."},
+     {text:"Matsuri wa doko desu?",   correct:false, nudge:"'Where is the festival?' — it's right here! Just say hai, ikitai desu."},
+    ]
+   }
+  ]
+ },
+
+ {
+  id:23, arc:"ARC 4: THE CORE RESET", title:"The Why",
+  bg:"https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=1200&q=80&fit=crop",
+  story:"The System Core is a pillar of pure light in a vast void. It speaks with meaning, not sound. It wants to know why it should let you fix it.",
+  context:"KIBI: 'Kara — because. That's the word. It connects a reason to an action. I only recovered it near the end. It's the hardest word to hold onto.'",
+  kibi:"Tell it why. The word is kara — because. Say something true.",
+  exchanges:[
+   {
+    speaker:"CORE", avatar:"💫", avatarClass:"core",
+    jp:[{w:"Doushite",k:"doushite"},{w:" koko ni?"}],
+    prompt:"The light pulses. It's a single question. Two words.",
+    type:"visual",
+    choices:[
+     {emoji:"💭",label:"Why",            text:"Why",            correct:true,  feedback:"✓ Doushite = why. Now answer it with kara (because)!"},
+     {emoji:"📍",label:"Where",          text:"Where",          correct:false, nudge:"Where = doko. Doushite = why — a different kind of question!"},
+     {emoji:"⏰",label:"When",           text:"When",           correct:false, nudge:"When = itsu. Doushite = why — about reason, not time!"},
+    ]
+   },
+   {
+    speaker:"CORE", avatar:"💫", avatarClass:"core",
+    jp:[{w:"Doushite",k:"doushite"},{w:" koko ni?"}],
+    prompt:"The light is waiting. Give it a real reason — end it with kara.",
+    type:"text",
+    choices:[
+     {text:"Tasuketai kara!",          correct:true,  feedback:"✓ Because I want to help. The Core shudders. Light fractures outward."},
+     {text:"Hana ga suki desu kara!",  correct:true,  feedback:"✓ Because I like Hana! The Core pauses — then accepts. Love is valid."},
+     {text:"Wakarimasen.",             correct:false, nudge:"'I don't know' — weak reason to save reality! Try tasuketai kara."},
+    ]
+   }
+  ]
+ },
+
+ {
+  id:24, arc:"ARC 4: THE CORE RESET", title:"The Tower",
+  bg:"https://images.unsplash.com/photo-1513407030348-c983a97b98d8?w=1200&q=80&fit=crop",
+  story:"Tokyo Tower — digital and real at once. You climb as the city flickers. A guardian of pure code blocks the final door.",
+  context:"KIBI is fully restored. She speaks more quietly now. 'Daijoubu,' she says, before you even ask. 'It means okay. It means: we can do this.'",
+  kibi:"Last door. It's trying to scare you off. Show it — and yourself — that you're ready.",
+  exchanges:[
+   {
+    speaker:"GUARDIAN", avatar:"⚡", avatarClass:"zero",
+    jp:[{w:"Abunai",k:"abunai"},{w:" yo!"}],
+    prompt:"It crackles at you. One word, loud.",
+    type:"visual",
+    choices:[
+     {emoji:"⚠️",label:"Dangerous",     text:"Dangerous",      correct:true,  feedback:"✓ Abunai = dangerous! Yo at the end adds emphasis — really dangerous!"},
+     {emoji:"😎",label:"Cool",           text:"Cool",           correct:false, nudge:"Cool = kakkoii. Abunai = dangerous — very different situation!"},
+     {emoji:"🏮",label:"Festival",       text:"Festival",       correct:false, nudge:"Festival = matsuri. Abunai = dangerous — a warning!"},
+    ]
+   },
+   {
+    speaker:"GUARDIAN", avatar:"⚡", avatarClass:"zero",
+    jp:[{w:"Abunai",k:"abunai"},{w:" yo!"}],
+    prompt:"It's louder now. KIBI puts her hand on your arm.",
+    type:"text",
+    choices:[
+     {text:"Daijoubu desu!",           correct:true,  feedback:"✓ 'It's fine.' The guardian flickers."},
+     {text:"Zenzen kowakunai!",        correct:true,  feedback:"✓ 'Not scary at all!' The guardian stumbles."},
+     {text:"Hai, abunai desu ne...",   correct:false, nudge:"You're agreeing and backing down! Pick a fearless response."},
+    ]
+   }
+  ]
+ },
+
+ {
+  id:25, arc:"ARC 4: THE CORE RESET", title:"KIZUNA",
+  bg:"https://images.unsplash.com/photo-1480796927426-f609979314bd?w=1200&q=80&fit=crop",
+  story:"The Core resets. Tokyo snaps back — every building solid, every light steady. You're on Tokyo Tower's observation deck. The city glows below. Hana is beside you. KIBI flickers softly.",
+  context:"Kizuna means bond or connection. You started knowing nothing. You finish speaking real sentences. That is the journey.",
+  kibi:"...Everything you learned is yours now. No translation needed. You speak.",
+  exchanges:[
+   {
+    speaker:"HANA", avatar:"👧", avatarClass:"hana",
+    jp:[{w:"Jouzu",k:"jouzu"},{w:" ni "},{w:"narimashita",k:"narimashita"},{w:" ne!"}],
+    prompt:"Hana looks at you and says something that makes KIBI go still.",
+    type:"visual",
+    choices:[
+     {emoji:"⭐",label:"Skilled / good",  text:"Skilled / good at something", correct:true, feedback:"✓ Jouzu = skilled. Narimashita = became (past). 'You became really good!'"},
+     {emoji:"😋",label:"Delicious",       text:"Delicious",      correct:false, nudge:"Delicious = oishii. Jouzu = skilled — about ability!"},
+     {emoji:"🏮",label:"Festival",        text:"Festival",       correct:false, nudge:"Festival = matsuri. Jouzu = skilled — you've really come far!"},
+    ]
+   },
+   {
+    speaker:"HANA", avatar:"👧", avatarClass:"hana",
+    jp:[{w:"Mata",k:null},{w:" kuru?"}],
+    prompt:"She's looking at the city, not at you. But she's asking you.",
+    type:"text",
+    choices:[
+     {text:"Hai, mata kimasu! Tokyo ga daisuki desu kara.", correct:true, feedback:"🎌 KIZUNA COMPLETE.\n\nYes, I'll come again — because I love Tokyo.\n\nA full sentence. A real reason.\nおめでとう — Congratulations."},
+     {text:"Wakaranai kedo, ikitai desu.",                  correct:true, feedback:"🎌 KIZUNA COMPLETE.\n\nI don't know, but I want to come.\nHonest and brave.\n\nおめでとう — Congratulations."},
+     {text:"Mata desu ka?",                                 correct:false,nudge:"You repeated the question! Answer her — will you come again?"},
+    ]
+   }
+  ]
+ }
+];
+
+// ══════════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════════
+const seenWords   = new Set();
+const lexiconData = [];  // {key, jp, rom, en, emoji}
+let currentLevel    = 0;
+let currentExchange = 0;
+let busy            = false;
+let toastCb         = null;
+let ttsSupported    = false;
+
+// ══════════════════════════════════════════════════════════
+// TTS — Web Speech API
+// ══════════════════════════════════════════════════════════
+function initTTS() {
+  if (!('speechSynthesis' in window)) return;
+  ttsSupported = true;
+  // Trigger voice list load — needed on Chrome where voices load async
+  window.speechSynthesis.getVoices();
+}
+
+function speak(text) {
+  if (!ttsSupported) return;
+  window.speechSynthesis.cancel();
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = 'ja-JP';
+  utter.rate = 0.85;
+  utter.pitch = 1.1;
+  // Prefer a Japanese voice if available, but always speak regardless
+  const voices = window.speechSynthesis.getVoices();
+  const jpVoice = voices.find(v => v.lang && v.lang.startsWith('ja'));
+  if (jpVoice) utter.voice = jpVoice;
+  window.speechSynthesis.speak(utter);
+}
+
+// ══════════════════════════════════════════════════════════
+// LEXICON
+// ══════════════════════════════════════════════════════════
+function addToLexicon(key) {
+  if (!VOCAB[key]) return;
+  if (lexiconData.find(w => w.key === key)) return;
+  const v = VOCAB[key];
+  lexiconData.push({key, ...v});
+  renderLexicon();
+}
+
+function renderLexicon() {
+  const grid = document.getElementById('lex-grid');
+  const empty = document.getElementById('lex-empty');
+  document.getElementById('lex-count').textContent = `${lexiconData.length} words acquired`;
+
+  if (lexiconData.length === 0) {
+    if (empty) empty.style.display = '';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+
+  grid.innerHTML = '';
+  lexiconData.forEach((w, i) => {
+    const card = document.createElement('div');
+    card.className = 'lex-card';
+    card.style.animationDelay = (i * 0.04) + 's';
+    card.innerHTML = `
+      <div class="lex-emoji">${w.emoji || '📝'}</div>
+      <div class="lex-jp">${w.jp || w.rom}</div>
+      <div class="lex-romaji">${w.rom}</div>`;
+    card.onclick = () => speak(w.jp || w.rom);
+    grid.appendChild(card);
+  });
+}
+
+function toggleLexicon() {
+  document.getElementById('lexicon').classList.toggle('open');
+}
+
+// ══════════════════════════════════════════════════════════
+// ANNOTATE JAPANESE
+// Returns DOM fragment with ruby annotations for new words
+// ══════════════════════════════════════════════════════════
+function annotateJP(parts) {
+  const container = document.createElement('span');
+  parts.forEach(part => {
+    if (!part.k) {
+      container.appendChild(document.createTextNode(part.w));
+      return;
+    }
+    const key = part.k.toLowerCase();
+    const entry = VOCAB[key];
+    const isNew = entry && !seenWords.has(key);
+
+    if (entry && isNew) {
+      const ruby = document.createElement('ruby');
+      ruby.className = 'w-new';
+      ruby.textContent = part.w;
+      const rt = document.createElement('rt');
+      rt.textContent = entry.en;
+      ruby.appendChild(rt);
+      container.appendChild(ruby);
+      seenWords.add(key);
+      // Add to lexicon if has emoji
+      if (entry.emoji) addToLexicon(key);
+    } else {
+      const span = document.createElement('span');
+      span.className = entry ? 'w-seen' : '';
+      span.textContent = part.w;
+      container.appendChild(span);
+    }
+  });
+  return container;
+}
+
+// ══════════════════════════════════════════════════════════
+// BUILD PLAIN TEXT from parts (for TTS)
+// ══════════════════════════════════════════════════════════
+function partsToText(parts) {
+  return parts.map(p => p.w).join('');
+}
+
+// ══════════════════════════════════════════════════════════
+// RENDER LEVEL — build all manga panels and scroll in
+// ══════════════════════════════════════════════════════════
+function renderLevel() {
+  const lv = LEVELS[currentLevel];
+  currentExchange = 0;
+  busy = false;
+
+  // Update HUD
+  document.getElementById('scene-bg').style.backgroundImage = `url('${lv.bg}')`;
+  document.getElementById('hud-lv').textContent = `LV ${String(lv.id).padStart(2,'0')}`;
+  document.getElementById('hud-arc').textContent = lv.arc.split(':')[0].trim();
+  document.getElementById('prog-fill').style.width = (lv.id / LEVELS.length * 100) + '%';
+  document.getElementById('kibi-text').textContent = lv.kibi;
+
+  // Clear scroll
+  const scroll = document.getElementById('scroll-area');
+  scroll.innerHTML = '';
+
+  // ── Panel 1: Hero image — arc label, title, scroll hint only ──
+  const pScene = document.createElement('div');
+  pScene.className = 'manga-panel panel-scene';
+  const sceneBg = document.createElement('div');
+  sceneBg.className = 'panel-scene-bg';
+  sceneBg.style.backgroundImage = `url('${lv.bg}')`;
+  const sceneOverlay = document.createElement('div');
+  sceneOverlay.className = 'panel-scene-overlay';
+  const arcEl = document.createElement('div'); arcEl.className = 'panel-arc'; arcEl.textContent = lv.arc;
+  const titleEl = document.createElement('div'); titleEl.className = 'panel-title'; titleEl.textContent = lv.title;
+  const scrollHint = document.createElement('div'); scrollHint.className = 'panel-scene-scroll'; scrollHint.textContent = '▼ SCROLL TO BEGIN';
+  sceneOverlay.append(arcEl, titleEl, scrollHint);
+  pScene.append(sceneBg, sceneOverlay);
+  scroll.appendChild(pScene);
+
+  // ── Panel 2: Story text ──
+  const pStory = document.createElement('div');
+  pStory.className = 'manga-panel panel-story-block';
+  const storyEl = document.createElement('div'); storyEl.className = 'panel-story-text'; storyEl.textContent = lv.story;
+  pStory.appendChild(storyEl);
+  scroll.appendChild(pStory);
+
+  // ── Panel 3: KIBI context note ──
+  const pCtx = document.createElement('div');
+  pCtx.className = 'manga-panel panel-context';
+  const ctxLabel = document.createElement('div');
+  ctxLabel.className = 'panel-context-label';
+  ctxLabel.textContent = '📡 KIBI LANGUAGE NOTE';
+  const ctxText = document.createElement('div');
+  ctxText.className = 'panel-context-text';
+  ctxText.textContent = lv.context;
+  pCtx.append(ctxLabel, ctxText);
+  scroll.appendChild(pCtx);
+
+  // ── Render first exchange only when user scrolls to context panel ──
+  // IntersectionObserver fires once context panel is 60% visible
+  const observer = new IntersectionObserver((entries, obs) => {
+    if (entries[0].isIntersecting) {
+      obs.disconnect();
+      renderExchange(scroll, lv);
+    }
+  }, { threshold: 0.6 });
+  observer.observe(pCtx);
+
+  // Scroll to top of hero
+  scroll.scrollTop = 0;
+}
+
+// ══════════════════════════════════════════════════════════
+// RENDER EXCHANGE — adds speech bubble + choice panels
+// ══════════════════════════════════════════════════════════
+function renderExchange(scroll, lv) {
+  const ex = lv.exchanges[currentExchange];
+  const totalEx = lv.exchanges.length;
+
+  // ── Speech bubble panel ──
+  const pSpeech = document.createElement('div');
+  pSpeech.className = 'manga-panel panel-speech';
+
+  const isPlayer = ex.avatarClass === 'player';
+  const bubbleRow = document.createElement('div');
+  bubbleRow.className = 'bubble-row' + (isPlayer ? ' player' : '');
+
+  // Avatar
+  const av = document.createElement('div');
+  av.className = 'avatar ' + (ex.avatarClass || '');
+  av.textContent = ex.avatar;
+  bubbleRow.appendChild(av);
+
+  // Bubble
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+
+  // Speaker label
+  const spkLabel = document.createElement('div');
+  spkLabel.className = 'bubble-speaker';
+  spkLabel.textContent = ex.speaker;
+  bubble.appendChild(spkLabel);
+
+  // Japanese text
+  const jpEl = document.createElement('div');
+  jpEl.className = 'bubble-jp';
+  const jpText = partsToText(ex.jp);
+  jpEl.appendChild(annotateJP(ex.jp));
+  bubble.appendChild(jpEl);
+
+  // Audio button — always rendered, speak() handles gracefully if TTS unavailable
+  const audioBtn = document.createElement('div');
+  audioBtn.className = 'audio-btn';
+  audioBtn.textContent = ' TAP TO HEAR';
+  audioBtn.onclick = (e) => {
+    e.stopPropagation();
+    audioBtn.classList.add('playing');
+    speak(jpText);
+    setTimeout(() => audioBtn.classList.remove('playing'), 2000);
+  };
+  bubble.appendChild(audioBtn);
+
+  // Click whole bubble to speak
+  bubble.onclick = () => speak(jpText);
+  bubble.title = 'Tap to hear';
+
+  bubbleRow.appendChild(bubble);
+  pSpeech.appendChild(bubbleRow);
+
+  // Exchange counter (if multi-exchange)
+  if (totalEx > 1) {
+    const pip = document.createElement('div');
+    pip.style.cssText = 'display:flex;gap:0.3rem;justify-content:center;margin-top:0.5rem;';
+    for (let i = 0; i < totalEx; i++) {
+      const dot = document.createElement('div');
+      dot.style.cssText = `width:6px;height:6px;border-radius:50%;transition:all 0.3s;background:${i < currentExchange ? 'var(--cyan)' : i === currentExchange ? 'var(--pink)' : 'rgba(255,255,255,0.15)'};`;
+      pip.appendChild(dot);
+    }
+    pSpeech.appendChild(pip);
+  }
+
+  scroll.appendChild(pSpeech);
+
+  // ── Choice panel ──
+  const pChoices = document.createElement('div');
+  pChoices.className = 'manga-panel panel-choices';
+
+  // Prompt
+  const promptBar = document.createElement('div');
+  promptBar.className = 'prompt-bar';
+  promptBar.textContent = ex.prompt;
+  pChoices.appendChild(promptBar);
+
+  // Grid
+  const grid = document.createElement('div');
+  grid.className = 'choices-grid ' + (ex.type === 'visual' ? 'visual' : 'text');
+  pChoices.appendChild(grid);
+
+  // Feedback bar
+  const fbBar = document.createElement('div');
+  fbBar.className = 'feedback-bar';
+  pChoices.appendChild(fbBar);
+
+  // Build choices — shuffle so correct answer position varies
+  const shuffled = [...ex.choices].sort(() => Math.random() - 0.5);
+  shuffled.forEach(ch => {
+    const btn = document.createElement(ex.type === 'visual' ? 'div' : 'button');
+    btn.className = ex.type === 'visual' ? 'choice-visual' : 'choice-text';
+
+    if (ex.type === 'visual') {
+      btn.innerHTML = `<div class="emoji">${ch.emoji}</div><div>${ch.label}</div>`;
+    } else {
+      btn.textContent = ch.text;
+    }
+
+    btn.onclick = () => handleChoice(btn, ch, grid, fbBar, scroll, lv);
+    grid.appendChild(btn);
+  });
+
+  scroll.appendChild(pChoices);
+
+  // Only scroll to new content for exchange 2+ (first exchange user scrolls to naturally)
+  if (currentExchange > 0) {
+    setTimeout(() => {
+      pSpeech.scrollIntoView({behavior:'smooth', block:'start'});
+    }, 150);
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// HANDLE CHOICE
+// ══════════════════════════════════════════════════════════
+function handleChoice(btn, ch, grid, fbBar, scroll, lv) {
+  if (busy) return;
+
+  if (ch.correct) {
+    busy = true;
+    btn.classList.add('correct');
+    grid.querySelectorAll('.choice-visual, .choice-text').forEach(b => {
+      b.style.pointerEvents = 'none';
+    });
+    fbBar.textContent = ch.feedback;
+    fbBar.className = 'feedback-bar good';
+
+    // Check if this is the LAST exchange AND last level (completion)
+    const isLastLevel = currentLevel >= LEVELS.length - 1;
+    const isLastExchange = currentExchange >= lv.exchanges.length - 1;
+
+    if (isLastLevel && isLastExchange && (ch.feedback.includes('KIZUNA COMPLETE') || ch.feedback.includes('Congratulations'))) {
+      setTimeout(() => showToast('🎌', ch.feedback, null), 1200);
+      return;
+    }
+
+    setTimeout(() => {
+      busy = false;
+      if (currentExchange < lv.exchanges.length - 1) {
+        currentExchange++;
+        renderExchange(scroll, lv);
+      } else {
+        // Level complete — go to next
+        if (currentLevel < LEVELS.length - 1) {
+          currentLevel++;
+          renderLevel();
+        } else {
+          showToast('🎌', 'KIZUNA COMPLETE\n\nYou saved Tokyo.\nYou made bonds that last.\n\nおめでとう\nOmedetou — Congratulations.\n\nYou started knowing nothing.\nYou finish speaking Japanese.\nThat is real.', null);
+        }
+      }
+    }, 1500);
+
+  } else {
+    // Wrong — shake, nudge, disable this button
+    btn.classList.add('wrong');
+    fbBar.textContent = ch.nudge || 'Not quite — try again!';
+    fbBar.className = 'feedback-bar bad';
+    setTimeout(() => {
+      btn.classList.remove('wrong');
+      btn.style.opacity = '0.3';
+      btn.style.pointerEvents = 'none';
+    }, 600);
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════════════════════
+function showToast(icon, text, cb) {
+  document.getElementById('toast-icon').textContent = icon;
+  document.getElementById('toast-text').textContent = text;
+  document.getElementById('toast').classList.add('show');
+  toastCb = cb;
+}
+function dismissToast() {
+  document.getElementById('toast').classList.remove('show');
+  if (toastCb) { toastCb(); toastCb = null; }
+}
+
+// ══════════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════════
+initTTS();
+renderLexicon();
+renderLevel();
+</script>
+</body>
+</html>
